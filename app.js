@@ -10,7 +10,14 @@ const clean = n => n.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
 const fmt = s => isFinite(s) ? Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') : '0:00';
 const size = b => b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : (b / 1e6).toFixed(b < 1e7 ? 1 : 0) + ' MB';
 const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const folderOK = !isIOS && 'webkitdirectory' in document.createElement('input');
+// iPhones and iPads can pick a folder from iOS 18.4 on; before that the folder picker only took a file.
+// The version is "OS 18_4" in the user agent (the home-screen app leaves out "Version/"), or only
+// "Version/18.4" on an iPad that asks for desktop sites. With neither, it's taken as new enough.
+const iosOld = (() => {
+  const m = navigator.userAgent.match(/ OS (\d+)_(\d+)/) || navigator.userAgent.match(/Version\/(\d+)\.(\d+)/);
+  return !!m && m[1] * 100 + +m[2] < 1804;
+})();
+const folderOK = !(isIOS && iosOld) && 'webkitdirectory' in document.createElement('input');
 
 let toastTimer;
 function toast(msg, sticky) {
@@ -223,7 +230,7 @@ function rootName(groups) {
 }
 
 // [{name, songs}], one per playlist file, in its order. Its lines (apart from # comments) are song paths,
-// relative to the playlist file. A path that doesn't fit (e.g. on iPhone, where picked files have no
+// relative to the playlist file. A path that doesn't fit (e.g. songs picked as files, which have no
 // folders) is matched by file name instead, first among the picked files, then among the songs already
 // here (`have`). Songs it lists that are in neither are left out.
 async function playlistGroups(listFiles, files, have) {
